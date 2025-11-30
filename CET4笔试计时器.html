@@ -1,0 +1,948 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CET4笔试计时器</title>
+  
+  <style>
+    /* 基础样式重置 */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    }
+    
+    body {
+      min-height: 100vh;
+      padding: 20px 16px;
+      background-color: #F8FAFC;
+      background-image: 
+        radial-gradient(circle at 10% 20%, rgba(22, 93, 255, 0.03) 0%, transparent 20%),
+        radial-gradient(circle at 90% 80%, rgba(22, 93, 255, 0.03) 0%, transparent 20%);
+      color: #1E293B;
+    }
+    
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    
+    /* 标题样式 */
+    header {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+    
+    h1 {
+      font-size: clamp(1.8rem, 4vw, 2.5rem);
+      font-weight: 700;
+      color: #1E293B;
+      margin-bottom: 8px;
+    }
+    
+    header p {
+      font-size: 1.1rem;
+      color: #64748B;
+    }
+    
+    /* 计时器卡片样式 */
+    .timer-card {
+      background-color: white;
+      border-radius: 16px;
+      padding: 24px;
+      margin-bottom: 24px;
+      box-shadow: 0 10px 25px -5px rgba(22, 93, 255, 0.1), 0 8px 10px -6px rgba(22, 93, 255, 0.1);
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .timer-card:hover {
+      transform: translateY(-5px);
+    }
+    
+    .timer-card.disabled {
+      opacity: 0.6;
+      /* 只禁用点击事件，不影响编辑按钮 */
+      pointer-events: none;
+    }
+    
+    .timer-card .btn-edit {
+      /* 让编辑按钮不受父容器disabled影响 */
+      pointer-events: auto;
+    }
+    
+    /* 总计时器进度条 */
+    .total-progress-bar {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 4px;
+      background-color: #165DFF;
+    }
+    
+    .total-progress {
+      height: 100%;
+      background-color: #36D399;
+      width: 100%;
+      transition: width 1s linear;
+    }
+    
+    /* 计时器头部样式 */
+    .timer-header {
+      display: flex;
+      flex-direction: column;
+      margin-bottom: 20px;
+    }
+    
+    @media (min-width: 768px) {
+      .timer-header {
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: center;
+      }
+    }
+    
+    .timer-title {
+      display: flex;
+      align-items: center;
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: #1E293B;
+      margin-bottom: 4px;
+    }
+    
+    .timer-desc {
+      color: #64748B;
+      font-size: 0.95rem;
+      margin-bottom: 12px;
+    }
+    
+    @media (min-width: 768px) {
+      .timer-desc {
+        margin-bottom: 0;
+      }
+    }
+    
+    .timer-status {
+      color: #165DFF;
+      font-size: 0.9rem;
+      margin-top: 4px;
+      font-weight: 500;
+    }
+    
+    /* 按钮组样式 */
+    .btn-group {
+      display: flex;
+      align-items: center;
+      gap: 16px; /* 增加按钮间距 */
+    }
+    
+    .btn {
+      padding: 8px 16px;
+      border-radius: 8px;
+      border: none;
+      font-size: 0.95rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .btn-edit {
+      color: white;
+      background-color: #165DFF;
+    }
+    
+    .btn-edit:hover {
+      background-color: #0F4CD0;
+    }
+    
+    .btn-edit.disabled {
+      background-color: #94A3B8;
+      cursor: not-allowed;
+    }
+    
+    .btn-start {
+      color: white;
+      background-color: #36D399;
+    }
+    
+    .btn-start:hover {
+      background-color: #2CBF89;
+    }
+    
+    .btn-start.total-start {
+      background-color: #165DFF;
+      padding: 10px 24px;
+      font-size: 1.05rem;
+    }
+    
+    .btn-start.total-start:hover {
+      background-color: #0F4CD0;
+    }
+    
+    .btn-pause {
+      color: white;
+      background-color: #F43F5E;
+    }
+    
+    .btn-pause:hover {
+      background-color: #E0314E;
+    }
+    
+    .btn-hidden {
+      display: none;
+    }
+    
+    /* 时间显示样式 */
+    .time-display {
+      font-size: clamp(1.5rem, 4vw, 2rem);
+      font-weight: 700;
+      color: #334155;
+      text-align: center;
+      transition: all 0.2s ease;
+    }
+    
+    @media (min-width: 768px) {
+      .time-display {
+        text-align: right;
+      }
+    }
+    
+    .time-ended {
+      animation: flash 1s ease-in-out infinite alternate;
+    }
+    
+    @keyframes flash {
+      from {
+        color: #F43F5E;
+        text-shadow: 0 0 5px rgba(244, 63, 94, 0.3);
+      }
+      to {
+        color: #F43F5E;
+        text-shadow: 0 0 15px rgba(244, 63, 94, 0.6);
+      }
+    }
+    
+    /* 页脚样式 */
+    footer {
+      margin-top: 48px;
+      text-align: center;
+      color: #64748B;
+      font-size: 0.9rem;
+    }
+    
+    /* 模态框样式 */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(5px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      opacity: 0;
+      visibility: hidden;
+      transition: all 0.3s ease;
+    }
+    
+    .modal-overlay.active {
+      opacity: 1;
+      visibility: visible;
+    }
+    
+    .modal-content {
+      background-color: white;
+      border-radius: 16px;
+      padding: 28px;
+      width: 90%;
+      max-width: 450px;
+      transform: scale(0.9);
+      transition: all 0.3s ease;
+    }
+    
+    .modal-overlay.active .modal-content {
+      transform: scale(1);
+    }
+    
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+    }
+    
+    .modal-title {
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: #1E293B;
+    }
+    
+    .modal-close {
+      background: transparent;
+      border: none;
+      font-size: 1.5rem;
+      color: #94A3B8;
+      cursor: pointer;
+      transition: color 0.2s ease;
+      width: 30px;
+      height: 30px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .modal-close:hover {
+      color: #64748B;
+    }
+    
+    .modal-body {
+      margin-bottom: 24px;
+    }
+    
+    .form-group {
+      margin-bottom: 20px;
+    }
+    
+    .form-label {
+      display: block;
+      margin-bottom: 8px;
+      color: #334155;
+      font-weight: 500;
+    }
+    
+    .form-input {
+      width: 100%;
+      padding: 12px 16px;
+      border: 1px solid #CBD5E1;
+      border-radius: 8px;
+      font-size: 1rem;
+      transition: all 0.2s ease;
+    }
+    
+    .form-input:focus {
+      outline: none;
+      border-color: #165DFF;
+      box-shadow: 0 0 0 3px rgba(22, 93, 255, 0.1);
+    }
+    
+    .modal-note {
+      font-size: 0.9rem;
+      color: #64748B;
+      margin-bottom: 8px;
+    }
+    
+    .modal-warning {
+      font-size: 0.9rem;
+      color: #F43F5E;
+    }
+    
+    .modal-footer {
+      display: flex;
+      gap: 12px;
+    }
+    
+    .btn-cancel {
+      flex: 1;
+      color: #334155;
+      background-color: #F1F5F9;
+      border: 1px solid #E2E8F0;
+    }
+    
+    .btn-cancel:hover {
+      background-color: #E2E8F0;
+    }
+    
+    .btn-save {
+      flex: 1;
+      color: white;
+      background-color: #165DFF;
+    }
+    
+    .btn-save:hover {
+      background-color: #0F4CD0;
+    }
+    
+    /* 时间到提示框 */
+    .timeup-modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(5px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1001;
+      opacity: 0;
+      visibility: hidden;
+      transition: all 0.3s ease;
+    }
+    
+    .timeup-modal.active {
+      opacity: 1;
+      visibility: visible;
+    }
+    
+    .timeup-content {
+      background-color: white;
+      border-radius: 16px;
+      padding: 32px;
+      width: 90%;
+      max-width: 400px;
+      text-align: center;
+      transform: scale(0.9);
+      transition: all 0.3s ease;
+    }
+    
+    .timeup-modal.active .timeup-content {
+      transform: scale(1);
+    }
+    
+    .timeup-title {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #1E293B;
+      margin-bottom: 12px;
+    }
+    
+    .timeup-desc {
+      color: #64748B;
+      margin-bottom: 24px;
+      font-size: 0.95rem;
+    }
+    
+    .btn-confirm {
+      padding: 10px 24px;
+      color: white;
+      background-color: #165DFF;
+      border-radius: 8px;
+      border: none;
+      font-size: 1rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background-color 0.2s ease;
+    }
+    
+    .btn-confirm:hover {
+      background-color: #0F4CD0;
+    }
+    
+    /* 动画效果 */
+    @keyframes pulse {
+      0%, 100% {
+        opacity: 1;
+      }
+      50% {
+        opacity: 0.7;
+      }
+    }
+    
+    .pulse-animation {
+      animation: pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+    
+    /* 提示文本 */
+    .hint-text {
+      text-align: center;
+      color: #64748B;
+      font-size: 0.95rem;
+      margin: 16px 0;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <!-- 页面标题 -->
+    <header>
+      <h1>CET4 笔试计时器（by 大萝卜崽 & Gemini）</h1>
+      <p>每个年轻人毕业前都该学会至少二十种语言，不是吗？——艾尔海森</p>
+    </header>
+    
+    <!-- 总计时器 -->
+    <div class="timer-card">
+      <div class="total-progress-bar">
+        <div id="total-progress" class="total-progress"></div>
+      </div>
+      
+      <div class="timer-header">
+        <div>
+          <h2 class="timer-title">总计时器</h2>
+          <p class="timer-desc">考试总时长：70分钟（开始后不可暂停）</p>
+          <p id="total-status" class="timer-status">状态：未开始（可修改分项时间）</p>
+        </div>
+        
+        <div class="btn-group">
+          <button id="total-start" class="btn btn-start total-start">开始考试</button>
+        </div>
+      </div>
+      
+      <div class="time-display">
+        <span id="total-timer">70:00</span>
+      </div>
+    </div>
+    
+    <!-- 提示文本 -->
+    <p class="hint-text">
+      提示：点击上方"开始考试"后，总计时器启动，分项计时器方可使用
+    </p>
+    
+    <!-- 分项计时器容器 -->
+    <div class="timer-container" id="sub-timers-container">
+      <!-- 仔细阅读计时器 -->
+      <div class="timer-card disabled" id="reading-card">
+        <div class="timer-header">
+          <div>
+            <h2 class="timer-title">仔细阅读</h2>
+            <p class="timer-desc">默认时长：20分钟</p>
+          </div>
+          
+          <div class="btn-group">
+            <button id="reading-edit" class="btn btn-edit">修改时长</button>
+            <button id="reading-start" class="btn btn-start">开始</button>
+            <button id="reading-pause" class="btn btn-pause btn-hidden">暂停</button>
+          </div>
+        </div>
+        
+        <div class="time-display">
+          <span id="reading-timer">20:00</span>
+        </div>
+      </div>
+      
+      <!-- 长篇阅读计时器 -->
+      <div class="timer-card disabled" id="long-reading-card">
+        <div class="timer-header">
+          <div>
+            <h2 class="timer-title">长篇阅读</h2>
+            <p class="timer-desc">默认时长：15分钟</p>
+          </div>
+          
+          <div class="btn-group">
+            <button id="long-reading-edit" class="btn btn-edit">修改时长</button>
+            <button id="long-reading-start" class="btn btn-start">开始</button>
+            <button id="long-reading-pause" class="btn btn-pause btn-hidden">暂停</button>
+          </div>
+        </div>
+        
+        <div class="time-display">
+          <span id="long-reading-timer">15:00</span>
+        </div>
+      </div>
+      
+      <!-- 翻译计时器 -->
+      <div class="timer-card disabled" id="translation-card">
+        <div class="timer-header">
+          <div>
+            <h2 class="timer-title">翻译</h2>
+            <p class="timer-desc">默认时长：20分钟</p>
+          </div>
+          
+          <div class="btn-group">
+            <button id="translation-edit" class="btn btn-edit">修改时长</button>
+            <button id="translation-start" class="btn btn-start">开始</button>
+            <button id="translation-pause" class="btn btn-pause btn-hidden">暂停</button>
+          </div>
+        </div>
+        
+        <div class="time-display">
+          <span id="translation-timer">20:00</span>
+        </div>
+      </div>
+    </div>
+    
+    <!-- 页脚 -->
+    <footer>
+      <p>© 2025 CET4笔试计时器 v2.5 | 所有计时器结束时都会有蜂鸣提醒喵~</p>
+    </footer>
+  </div>
+  
+  <!-- 修改时长模态框 -->
+  <div id="time-modal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="modal-title" class="modal-title">修改仔细阅读时长</h3>
+        <button class="modal-close" onclick="closeModal()">×</button>
+      </div>
+      
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">设置时长（分钟）</label>
+          <input type="number" id="time-input" min="1" max="70" class="form-input">
+        </div>
+        
+        <p class="modal-note">当前总时长：<span id="current-total">55</span> 分钟</p>
+        <p class="modal-warning">提示：三项总时长不可超过70分钟</p>
+      </div>
+      
+      <div class="modal-footer">
+        <button class="btn btn-cancel" onclick="closeModal()">取消</button>
+        <button id="save-time" class="btn btn-save">保存</button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- 时间到提示框 -->
+  <div id="time-up-modal" class="timeup-modal">
+    <div class="timeup-content">
+      <h3 class="timeup-title">时间到！</h3>
+      <p class="timeup-desc">考试总时长已结束，所有计时器已暂停</p>
+      <button class="btn-confirm" onclick="closeTimeUpModal()">确认</button>
+    </div>
+  </div>
+
+  <script>
+    // 全局状态
+    let isExamStarted = false;
+    
+    // 计时器状态管理
+    const timers = {
+      total: {
+        element: document.getElementById('total-timer'),
+        progress: document.getElementById('total-progress'),
+        startBtn: document.getElementById('total-start'),
+        statusText: document.getElementById('total-status'),
+        minutes: 70,
+        seconds: 0,
+        interval: null,
+        isRunning: false
+      },
+      reading: {
+        element: document.getElementById('reading-timer'),
+        startBtn: document.getElementById('reading-start'),
+        pauseBtn: document.getElementById('reading-pause'),
+        editBtn: document.getElementById('reading-edit'),
+        card: document.getElementById('reading-card'),
+        minutes: 20,
+        seconds: 0,
+        interval: null,
+        isRunning: false,
+        originalMinutes: 20,
+        type: 'reading',
+        name: '仔细阅读'
+      },
+      longReading: {
+        element: document.getElementById('long-reading-timer'),
+        startBtn: document.getElementById('long-reading-start'),
+        pauseBtn: document.getElementById('long-reading-pause'),
+        editBtn: document.getElementById('long-reading-edit'),
+        card: document.getElementById('long-reading-card'),
+        minutes: 15,
+        seconds: 0,
+        interval: null,
+        isRunning: false,
+        originalMinutes: 15,
+        type: 'longReading',
+        name: '长篇阅读'
+      },
+      translation: {
+        element: document.getElementById('translation-timer'),
+        startBtn: document.getElementById('translation-start'),
+        pauseBtn: document.getElementById('translation-pause'),
+        editBtn: document.getElementById('translation-edit'),
+        card: document.getElementById('translation-card'),
+        minutes: 20,
+        seconds: 0,
+        interval: null,
+        isRunning: false,
+        originalMinutes: 20,
+        type: 'translation',
+        name: '翻译'
+      }
+    };
+    
+    // 模态框元素
+    const modal = document.getElementById('time-modal');
+    const timeInput = document.getElementById('time-input');
+    const modalTitle = document.getElementById('modal-title');
+    const currentTotalEl = document.getElementById('current-total');
+    const saveTimeBtn = document.getElementById('save-time');
+    const timeUpModal = document.getElementById('time-up-modal');
+    
+    // 当前正在编辑的计时器类型
+    let editingTimer = null;
+    
+    // 计算当前三项总时长
+    function calculateTotalTime() {
+      return timers.reading.minutes + timers.longReading.minutes + timers.translation.minutes;
+    }
+    
+    // 更新当前总时长显示
+    function updateCurrentTotalDisplay() {
+      currentTotalEl.textContent = calculateTotalTime();
+    }
+    
+    // 格式化时间显示
+    function formatTime(minutes, seconds) {
+      return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    }
+    
+    // 蜂鸣器提醒（3声）
+    function beep() {
+      // 创建音频上下文
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      const audioCtx = new AudioContext();
+      
+      // 蜂鸣函数
+      function playBeep(duration = 100, frequency = 800) {
+        const oscillator = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+        
+        oscillator.type = 'sine';
+        oscillator.frequency.setValueAtTime(frequency, audioCtx.currentTime);
+        gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+        
+        oscillator.start();
+        oscillator.stop(audioCtx.currentTime + duration / 1000);
+      }
+      
+      // 播放3声蜂鸣，间隔500ms
+      playBeep();
+      setTimeout(() => playBeep(), 500);
+      setTimeout(() => playBeep(), 1000);
+    }
+    
+    // 启动考试（总计时器开始）
+    function startExam() {
+      if (isExamStarted) return;
+      
+      isExamStarted = true;
+      
+      // 更新UI状态
+      timers.total.statusText.textContent = '状态：考试进行中（不可修改分项时间）';
+      timers.total.startBtn.classList.add('btn-hidden');
+      
+      // 启用分项计时器，隐藏编辑按钮
+      [timers.reading, timers.longReading, timers.translation].forEach(timer => {
+        timer.card.classList.remove('disabled');
+        timer.editBtn.classList.add('btn-hidden'); // 考试开始后隐藏编辑按钮
+      });
+      
+      // 开始总计时器
+      startTotalTimer();
+    }
+    
+    // 总计时器逻辑
+    function startTotalTimer() {
+      timers.total.isRunning = true;
+      const totalSeconds = timers.total.minutes * 60 + timers.total.seconds;
+      
+      timers.total.interval = setInterval(() => {
+        if (timers.total.minutes === 0 && timers.total.seconds === 0) {
+          clearInterval(timers.total.interval);
+          beep();
+          showTimeUpModal();
+          pauseAllTimers();
+          return;
+        }
+        
+        if (timers.total.seconds === 0) {
+          timers.total.minutes--;
+          timers.total.seconds = 59;
+        } else {
+          timers.total.seconds--;
+        }
+        
+        // 更新显示
+        timers.total.element.textContent = formatTime(timers.total.minutes, timers.total.seconds);
+        
+        // 更新进度条
+        const remainingSeconds = timers.total.minutes * 60 + timers.total.seconds;
+        const progressPercent = (remainingSeconds / totalSeconds) * 100;
+        timers.total.progress.style.width = `${progressPercent}%`;
+        
+        // 剩余10分钟时进度条变黄
+        if (remainingSeconds <= 600) {
+          timers.total.progress.style.backgroundColor = '#F59E0B';
+          timers.total.statusText.textContent = '状态：考试进行中（剩余10分钟）';
+        }
+        
+        // 剩余5分钟时进度条变红并闪烁
+        if (remainingSeconds <= 300) {
+          timers.total.progress.style.backgroundColor = '#F43F5E';
+          timers.total.progress.classList.add('pulse-animation');
+          timers.total.statusText.textContent = '状态：考试进行中（剩余5分钟）';
+        }
+      }, 1000);
+    }
+    
+    // 分项计时器控制
+    function setupTimerControls(timer) {
+      // 开始按钮
+      timer.startBtn.addEventListener('click', () => {
+        if (!timer.isRunning && isExamStarted) {
+          timer.isRunning = true;
+          timer.startBtn.classList.add('btn-hidden');
+          timer.pauseBtn.classList.remove('btn-hidden');
+          timer.element.classList.remove('time-ended');
+          
+          timer.interval = setInterval(() => {
+            if (timer.minutes === 0 && timer.seconds === 0) {
+              clearInterval(timer.interval);
+              timer.isRunning = false;
+              timer.startBtn.classList.remove('btn-hidden');
+              timer.pauseBtn.classList.add('btn-hidden');
+              timer.element.classList.add('time-ended');
+              beep();
+              return;
+            }
+            
+            if (timer.seconds === 0) {
+              timer.minutes--;
+              timer.seconds = 59;
+            } else {
+              timer.seconds--;
+            }
+            
+            timer.element.textContent = formatTime(timer.minutes, timer.seconds);
+          }, 1000);
+        }
+      });
+      
+      // 暂停按钮
+      timer.pauseBtn.addEventListener('click', () => {
+        if (timer.isRunning) {
+          clearInterval(timer.interval);
+          timer.isRunning = false;
+          timer.startBtn.classList.remove('btn-hidden');
+          timer.pauseBtn.classList.add('btn-hidden');
+        }
+      });
+      
+      // 编辑按钮 - 独立绑定事件，不受父容器disabled影响
+      timer.editBtn.addEventListener('click', () => {
+        // 如果考试已开始，不允许编辑
+        if (isExamStarted) {
+          alert('考试已开始，不可修改时长');
+          return;
+        }
+        
+        editingTimer = timer;
+        modalTitle.textContent = `修改${timer.name}时长`;
+        timeInput.value = timer.minutes;
+        updateCurrentTotalDisplay();
+        openModal();
+      });
+    }
+    
+    // 暂停所有运行中的计时器
+    function pauseAllTimers() {
+      [timers.reading, timers.longReading, timers.translation].forEach(timer => {
+        if (timer.isRunning) {
+          clearInterval(timer.interval);
+          timer.isRunning = false;
+          timer.startBtn.classList.remove('btn-hidden');
+          timer.pauseBtn.classList.add('btn-hidden');
+        }
+        // 禁用所有分项计时器
+        timer.card.classList.add('disabled');
+      });
+      
+      // 更新总计时器状态
+      timers.total.statusText.textContent = '状态：考试已结束';
+    }
+    
+    // 显示时间到提示框
+    function showTimeUpModal() {
+      timeUpModal.classList.add('active');
+      document.body.style.overflow = 'hidden';
+    }
+    
+    // 关闭时间到提示框
+    function closeTimeUpModal() {
+      timeUpModal.classList.remove('active');
+      document.body.style.overflow = 'auto';
+    }
+    
+    // 打开模态框
+    function openModal() {
+      modal.classList.add('active');
+      document.body.style.overflow = 'hidden';
+      timeInput.focus();
+    }
+    
+    // 关闭模态框
+    function closeModal() {
+      modal.classList.remove('active');
+      document.body.style.overflow = 'auto';
+      editingTimer = null;
+    }
+    
+    // 保存修改的时长
+    saveTimeBtn.addEventListener('click', () => {
+      if (!editingTimer || isExamStarted) return;
+      
+      const newTime = parseInt(timeInput.value);
+      const currentTotal = calculateTotalTime();
+      const timeDifference = newTime - editingTimer.minutes;
+      
+      // 验证输入
+      if (isNaN(newTime) || newTime < 1 || newTime > 70) {
+        alert('请输入1-70之间的有效数字');
+        return;
+      }
+      
+      // 验证总时长不超过70分钟
+      if (currentTotal + timeDifference > 70) {
+        alert('三项总时长不可超过70分钟');
+        return;
+      }
+      
+      // 保存新时长
+      editingTimer.minutes = newTime;
+      editingTimer.seconds = 0;
+      editingTimer.element.textContent = formatTime(editingTimer.minutes, editingTimer.seconds);
+      
+      closeModal();
+    });
+    
+    // 点击模态框外部关闭
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) closeModal();
+    });
+    
+    timeUpModal.addEventListener('click', (e) => {
+      if (e.target === timeUpModal) closeTimeUpModal();
+    });
+    
+    // 绑定总计时器开始按钮
+    timers.total.startBtn.addEventListener('click', startExam);
+    
+    // 初始化
+    function init() {
+      // 设置所有计时器显示
+      Object.values(timers).forEach(timer => {
+        if (timer.element) {
+          timer.element.textContent = formatTime(timer.minutes, timer.seconds);
+        }
+      });
+      
+      // 设置分项计时器控制
+      setupTimerControls(timers.reading);
+      setupTimerControls(timers.longReading);
+      setupTimerControls(timers.translation);
+      
+      // 初始化当前总时长显示
+      updateCurrentTotalDisplay();
+    }
+    
+    // 启动应用
+    document.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
+</html>

@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CET4 估分计算器（by 大萝卜崽 & Gemini）</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "Helvetica Neue", Arial, sans-serif;
+        }
+
+        body {
+            background-color: #f5f7fa;
+            padding: 20px;
+            position: relative;
+        }
+
+        /* 新增：参考提示样式 */
+        .reference-tip {
+            max-width: 700px;
+            margin: 0 auto 20px;
+            padding: 10px 15px;
+            background-color: rgba(243, 156, 18, 0.1);
+            color: #d35400;
+            border-radius: 6px;
+            font-size: 14px;
+            text-align: center;
+        }
+
+        .container {
+            max-width: 700px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            position: relative;
+        }
+
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 30px;
+            font-size: 24px;
+        }
+
+        .section-title {
+            color: #3498db;
+            margin: 25px 0 15px;
+            font-size: 18px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 8px;
+        }
+
+        .input-group {
+            margin-bottom: 15px;
+            position: relative;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #34495e;
+            font-weight: 500;
+        }
+
+        input {
+            width: 100%;
+            padding: 10px 15px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 16px;
+            transition: all 0.3s;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.1);
+        }
+
+        /* 新增：当前焦点输入框的高亮样式 */
+        input.current-focus {
+            border-color: #3498db;
+            box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.3);
+            background-color: #f8f9fa;
+        }
+
+        input.error {
+            border-color: #e74c3c;
+        }
+
+        .error-tip {
+            color: #e74c3c;
+            font-size: 12px;
+            margin-top: 5px;
+            display: none;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 12px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            margin: 20px 0;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn:hover {
+            background-color: #2980b9;
+        }
+
+        /* 新增：结果区域样式优化 + 引导动画 */
+        .result {
+            display: none;
+            margin-top: 30px;
+            padding: 20px;
+            border: 2px solid #3498db;
+            border-radius: 8px;
+            background-color: #f8f9fa;
+            /* 新增：结果区域置顶+轻微动画 */
+            animation: resultShow 0.5s ease-in-out;
+            position: sticky;
+            top: 20px;
+            z-index: 10;
+            margin-bottom: 20px;
+        }
+
+        /* 新增：结果展示动画 */
+        @keyframes resultShow {
+            0% {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* 新增：结果标题+引导箭头 */
+        .result-title {
+            color: #2c3e50;
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .result-title::after {
+            content: "↓";
+            margin-left: 10px;
+            color: #3498db;
+            animation: arrowBounce 1s infinite alternate;
+        }
+
+        @keyframes arrowBounce {
+            0% {
+                transform: translateY(0);
+            }
+            100% {
+                transform: translateY(5px);
+            }
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+
+        th {
+            background-color: #f8f9fa;
+            color: #2c3e50;
+        }
+
+        .sub-item {
+            color: #7f8c8d;
+            font-size: 14px;
+        }
+
+        .total-row {
+            font-weight: bold;
+            color: #2c3e50;
+            background-color: #f8f9fa;
+        }
+
+        .score-tip {
+            padding: 15px;
+            border-radius: 6px;
+            text-align: center;
+            font-size: 16px;
+            margin-top: 10px;
+        }
+
+        .pass {
+            background-color: rgba(46, 204, 113, 0.1);
+            color: #27ae60;
+        }
+
+        .fail {
+            background-color: rgba(231, 76, 60, 0.1);
+            color: #e74c3c;
+        }
+
+        .reset-btn {
+            background-color: #95a5a6;
+        }
+
+        .reset-btn:hover {
+            background-color: #7f8c8d;
+        }
+
+        .summary-row {
+            font-weight: 500;
+        }
+
+        /* 新增：滚动提示样式 */
+        .scroll-tip {
+            display: none;
+            text-align: center;
+            color: #3498db;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+        
+        /* 新增：输入提示样式 */
+        .input-hint {
+            color: #7f8c8d;
+            font-size: 12px;
+            margin-top: 5px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+ 
+    <div class="container">
+        <h1> CET4 估分计算器（by 大萝卜崽 & Gemini）</h1>
+
+        <!-- 作文翻译区域 -->
+        <div class="section-title">作文 & 翻译</div>
+        <div class="input-group">
+            <label for="writing">作文得分（0-15分）</label>
+            <input type="number" id="writing" step="0.1" min="0" max="15" class="cet-input" data-next="translation">
+            <div class="error-tip" id="writing-error">请输入0-15之间的有效数字</div>
+            <div class="input-hint" id="writing-hint">按回车键跳转到下一项</div>
+        </div>
+        <div class="input-group">
+            <label for="translation">翻译得分（0-15分）</label>
+            <input type="number" id="translation" step="0.1" min="0" max="15" class="cet-input" data-next="listening1">
+            <div class="error-tip" id="translation-error">请输入0-15之间的有效数字</div>
+            <div class="input-hint" id="translation-hint">按回车键跳转到下一项</div>
+        </div>
+
+        <!-- 听力区域 -->
+        <div class="section-title">听力部分（总分35分）</div>
+        <div class="input-group">
+            <label for="listening1">听力前15题（每题1分）答对题数（0-15）</label>
+            <input type="number" id="listening1" step="1" min="0" max="15" class="cet-input" data-next="listening2">
+            <div class="error-tip" id="listening1-error">请输入0-15之间的有效整数</div>
+            <div class="input-hint" id="listening1-hint">按回车键跳转到下一项</div>
+        </div>
+        <div class="input-group">
+            <label for="listening2">听力后10题（每题2分）答对题数（0-10）</label>
+            <input type="number" id="listening2" step="1" min="0" max="10" class="cet-input" data-next="reading1">
+            <div class="error-tip" id="listening2-error">请输入0-10之间的有效整数</div>
+            <div class="input-hint" id="listening2-hint">按回车键跳转到下一项</div>
+        </div>
+
+        <!-- 阅读区域 -->
+        <div class="section-title">阅读部分（总分35分）</div>
+        <div class="input-group">
+            <label for="reading1">选词填空（每题0.5分，共10题）答对题数（0-10）</label>
+            <input type="number" id="reading1" step="1" min="0" max="10" class="cet-input" data-next="reading2">
+            <div class="error-tip" id="reading1-error">请输入0-10之间的有效整数</div>
+            <div class="input-hint" id="reading1-hint">按回车键跳转到下一项</div>
+        </div>
+        <div class="input-group">
+            <label for="reading2">信息匹配题（每题1分，共10题）答对题数（0-10）</label>
+            <input type="number" id="reading2" step="1" min="0" max="10" class="cet-input" data-next="reading3">
+            <div class="error-tip" id="reading2-error">请输入0-10之间的有效整数</div>
+            <div class="input-hint" id="reading2-hint">按回车键跳转到下一项</div>
+        </div>
+        <div class="input-group">
+            <label for="reading3">仔细阅读（每题2分，共10题）答对题数（0-10）</label>
+            <input type="number" id="reading3" step="1" min="0" max="10" class="cet-input" data-next="calculate">
+            <div class="error-tip" id="reading3-error">请输入0-10之间的有效整数</div>
+            <div class="input-hint" id="reading3-hint">按回车键自动计算分数</div>
+        </div>
+
+        <button class="btn" onclick="calculateScore()">开始计算</button>
+        <button class="btn reset-btn" onclick="resetForm()">重置输入</button>
+
+        <!-- 新增：滚动提示 -->
+        <div class="scroll-tip" id="scroll-tip">
+            计算结果已显示  原始输入可查看上方 ↑
+        </div>
+
+        <!-- 结果展示区域（优化） -->
+        <div class="result" id="result">
+            <div class="result-title">估分结果</div>
+            <table>
+                <tr>
+                    <th>题型</th>
+                    <th>原始分</th>
+                    <th>标准分（710分制）</th>
+                </tr>
+                <!-- 作文翻译 -->
+                <tr>
+                    <td>作文</td>
+                    <td id="writing-original">-</td>
+                    <td id="writing-score">-</td>
+                </tr>
+                <tr>
+                    <td>翻译</td>
+                    <td id="translation-original">-</td>
+                    <td id="translation-score">-</td>
+                </tr>
+                <!-- 听力细分 -->
+                <tr>
+                    <td>听力 - 前15题 <span class="sub-item">（1分/题）</span></td>
+                    <td id="listening1-original">-</td>
+                    <td id="listening1-score">-</td>
+                </tr>
+                <tr>
+                    <td>听力 - 后10题 <span class="sub-item">（2分/题）</span></td>
+                    <td id="listening2-original">-</td>
+                    <td id="listening2-score">-</td>
+                </tr>
+                <tr class="summary-row">
+                    <td>听力总计</td>
+                    <td id="listening-total-original">-</td>
+                    <td id="listening-total-score">-</td>
+                </tr>
+                <!-- 阅读细分 -->
+                <tr>
+                    <td>阅读 - 选词填空 <span class="sub-item">（0.5分/题）</span></td>
+                    <td id="reading1-original">-</td>
+                    <td id="reading1-score">-</td>
+                </tr>
+                <tr>
+                    <td>阅读 - 信息匹配 <span class="sub-item">（1分/题）</span></td>
+                    <td id="reading2-original">-</td>
+                    <td id="reading2-score">-</td>
+                </tr>
+                <tr>
+                    <td>阅读 - 仔细阅读 <span class="sub-item">（2分/题）</span></td>
+                    <td id="reading3-original">-</td>
+                    <td id="reading3-score">-</td>
+                </tr>
+                <tr class="summary-row">
+                    <td>阅读总计</td>
+                    <td id="reading-total-original">-</td>
+                    <td id="reading-total-score">-</td>
+                </tr>
+                <!-- 总分 -->
+                <tr class="total-row">
+                    <td>四级总分</td>
+                    <td id="total-original">-</td>
+                    <td id="total-score">-</td>
+                </tr>
+            </table>
+
+            <div class="score-tip" id="score-tip"></div>
+            
+            <!-- 新增：结果区域内再次提示 -->
+            <div class="reference-tip" style="margin: 10px 0 0; font-size: 12px;">
+                注：估分仅供参考，最终成绩以CET委员会赋分为准喵~
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 验证输入是否有效
+        function validateInput() {
+            let isValid = true;
+            // 作文翻译验证
+            const writing = parseFloat(document.getElementById('writing').value);
+            const translation = parseFloat(document.getElementById('translation').value);
+            // 听力验证
+            const listening1 = parseInt(document.getElementById('listening1').value);
+            const listening2 = parseInt(document.getElementById('listening2').value);
+            // 阅读验证
+            const reading1 = parseInt(document.getElementById('reading1').value);
+            const reading2 = parseInt(document.getElementById('reading2').value);
+            const reading3 = parseInt(document.getElementById('reading3').value);
+
+            // 验证作文
+            if (isNaN(writing) || writing < 0 || writing > 15) {
+                showError('writing');
+                isValid = false;
+            } else {
+                hideError('writing');
+            }
+
+            // 验证翻译
+            if (isNaN(translation) || translation < 0 || translation > 15) {
+                showError('translation');
+                isValid = false;
+            } else {
+                hideError('translation');
+            }
+
+            // 验证听力前15题
+            if (isNaN(listening1) || listening1 < 0 || listening1 > 15 || !Number.isInteger(listening1)) {
+                showError('listening1');
+                isValid = false;
+            } else {
+                hideError('listening1');
+            }
+
+            // 验证听力后10题
+            if (isNaN(listening2) || listening2 < 0 || listening2 > 10 || !Number.isInteger(listening2)) {
+                showError('listening2');
+                isValid = false;
+            } else {
+                hideError('listening2');
+            }
+
+            // 验证选词填空
+            if (isNaN(reading1) || reading1 < 0 || reading1 > 10 || !Number.isInteger(reading1)) {
+                showError('reading1');
+                isValid = false;
+            } else {
+                hideError('reading1');
+            }
+
+            // 验证信息匹配
+            if (isNaN(reading2) || reading2 < 0 || reading2 > 10 || !Number.isInteger(reading2)) {
+                showError('reading2');
+                isValid = false;
+            } else {
+                hideError('reading2');
+            }
+
+            // 验证仔细阅读
+            if (isNaN(reading3) || reading3 < 0 || reading3 > 10 || !Number.isInteger(reading3)) {
+                showError('reading3');
+                isValid = false;
+            } else {
+                hideError('reading3');
+            }
+
+            return isValid;
+        }
+
+        // 显示错误提示
+        function showError(id) {
+            document.getElementById(id).classList.add('error');
+            document.getElementById(`${id}-error`).style.display = 'block';
+        }
+
+        // 隐藏错误提示
+        function hideError(id) {
+            document.getElementById(id).classList.remove('error');
+            document.getElementById(`${id}-error`).style.display = 'none';
+        }
+
+        // 计算分数（新增自动滚动+提示显示）
+        function calculateScore() {
+            // 先验证输入
+            if (!validateInput()) {
+                return;
+            }
+
+            // 获取输入值
+            const writing = parseFloat(document.getElementById('writing').value);
+            const translation = parseFloat(document.getElementById('translation').value);
+            const listening1 = parseInt(document.getElementById('listening1').value);
+            const listening2 = parseInt(document.getElementById('listening2').value);
+            const reading1 = parseInt(document.getElementById('reading1').value);
+            const reading2 = parseInt(document.getElementById('reading2').value);
+            const reading3 = parseInt(document.getElementById('reading3').value);
+
+            // 计算原始分
+            // 听力原始分：前15题*1 + 后10题*2
+            const listening1Original = listening1 * 1;
+            const listening2Original = listening2 * 2;
+            const listeningTotalOriginal = listening1Original + listening2Original;
+            // 阅读原始分：选词填空*0.5 + 信息匹配*1 + 仔细阅读*2
+            const reading1Original = reading1 * 0.5;
+            const reading2Original = reading2 * 1;
+            const reading3Original = reading3 * 2;
+            const readingTotalOriginal = reading1Original + reading2Original + reading3Original;
+            // 总分原始分
+            const totalOriginal = writing + translation + listeningTotalOriginal + readingTotalOriginal;
+
+            // 计算710分制标准分（官方换算规则）
+            const writingScore = (writing / 15.0) * 106.5;          // 作文：106.5分满分
+            const translationScore = (translation / 15.0) * 106.5;  // 翻译：106.5分满分
+            // 听力标准分：总分248.5分（占35%），按原始分/35换算
+            const listening1Score = (listening1Original / 35.0) * 248.5;
+            const listening2Score = (listening2Original / 35.0) * 248.5;
+            const listeningTotalScore = listening1Score + listening2Score;
+            // 阅读标准分：总分248.5分（占35%），按原始分/35换算
+            const reading1Score = (reading1Original / 35.0) * 248.5;
+            const reading2Score = (reading2Original / 35.0) * 248.5;
+            const reading3Score = (reading3Original / 35.0) * 248.5;
+            const readingTotalScore = reading1Score + reading2Score + reading3Score;
+            // 四级总分
+            const totalScore = writingScore + translationScore + listeningTotalScore + readingTotalScore;
+
+            // 填充结果
+            // 作文翻译
+            document.getElementById('writing-original').textContent = `${writing.toFixed(1)}/15`;
+            document.getElementById('writing-score').textContent = writingScore.toFixed(1);
+            document.getElementById('translation-original').textContent = `${translation.toFixed(1)}/15`;
+            document.getElementById('translation-score').textContent = translationScore.toFixed(1);
+            
+            // 听力细分
+            document.getElementById('listening1-original').textContent = `${listening1Original.toFixed(1)}/15`;
+            document.getElementById('listening1-score').textContent = listening1Score.toFixed(1);
+            document.getElementById('listening2-original').textContent = `${listening2Original.toFixed(1)}/20`;
+            document.getElementById('listening2-score').textContent = listening2Score.toFixed(1);
+            document.getElementById('listening-total-original').textContent = `${listeningTotalOriginal.toFixed(1)}/35`;
+            document.getElementById('listening-total-score').textContent = listeningTotalScore.toFixed(1);
+            
+            // 阅读细分
+            document.getElementById('reading1-original').textContent = `${reading1Original.toFixed(1)}/5`;
+            document.getElementById('reading1-score').textContent = reading1Score.toFixed(1);
+            document.getElementById('reading2-original').textContent = `${reading2Original.toFixed(1)}/10`;
+            document.getElementById('reading2-score').textContent = reading2Score.toFixed(1);
+            document.getElementById('reading3-original').textContent = `${reading3Original.toFixed(1)}/20`;
+            document.getElementById('reading3-score').textContent = reading3Score.toFixed(1);
+            document.getElementById('reading-total-original').textContent = `${readingTotalOriginal.toFixed(1)}/35`;
+            document.getElementById('reading-total-score').textContent = readingTotalScore.toFixed(1);
+            
+            // 总分
+            document.getElementById('total-original').textContent = `${totalOriginal.toFixed(1)}/100`;
+            document.getElementById('total-score').textContent = totalScore.toFixed(1);
+
+            // 显示及格/不及格提示
+            const tipEl = document.getElementById('score-tip');
+            if (totalScore >= 425) {
+                tipEl.className = 'score-tip pass';
+                tipEl.textContent = `恭喜喵！你的预估分数达到四级及格线喵！总分：${totalScore.toFixed(1)}分`;
+            } else {
+                tipEl.className = 'score-tip fail';
+                tipEl.textContent = `过分喵！你的预估分数未达到四级及格线喵！还差${(425 - totalScore).toFixed(1)}分，总分：${totalScore.toFixed(1)}分`;
+            }
+
+            // 显示结果区域
+            document.getElementById('result').style.display = 'block';
+            
+            // 新增：1. 自动滚动到结果区域
+            document.getElementById('result').scrollIntoView({
+                behavior: 'smooth', // 平滑滚动
+                block: 'start'      // 滚动到顶部
+            });
+            
+            // 新增：2. 显示滚动提示（3秒后自动隐藏）
+            const scrollTip = document.getElementById('scroll-tip');
+            scrollTip.style.display = 'block';
+            setTimeout(() => {
+                scrollTip.style.display = 'none';
+            }, 3000);
+        }
+
+        // 重置表单
+        function resetForm() {
+            // 清空所有输入
+            document.getElementById('writing').value = '';
+            document.getElementById('translation').value = '';
+            document.getElementById('listening1').value = '';
+            document.getElementById('listening2').value = '';
+            document.getElementById('reading1').value = '';
+            document.getElementById('reading2').value = '';
+            document.getElementById('reading3').value = '';
+
+            // 隐藏错误提示
+            hideError('writing');
+            hideError('translation');
+            hideError('listening1');
+            hideError('listening2');
+            hideError('reading1');
+            hideError('reading2');
+            hideError('reading3');
+
+            // 隐藏结果区域和滚动提示
+            document.getElementById('result').style.display = 'none';
+            document.getElementById('scroll-tip').style.display = 'none';
+            
+            // 重置焦点到第一个输入框
+            document.getElementById('writing').focus();
+        }
+        
+        // 新增：回车自动跳转功能
+        document.addEventListener('DOMContentLoaded', function() {
+            // 获取所有输入框
+            const inputs = document.querySelectorAll('.cet-input');
+            
+            // 为每个输入框添加事件监听器
+            inputs.forEach(input => {
+                // 添加焦点事件
+                input.addEventListener('focus', function() {
+                    // 移除所有输入框的当前焦点样式
+                    inputs.forEach(i => i.classList.remove('current-focus'));
+                    // 为当前输入框添加焦点样式
+                    this.classList.add('current-focus');
+                    
+                    // 显示当前输入框的提示
+                    document.querySelectorAll('.input-hint').forEach(hint => {
+                        hint.style.display = 'none';
+                    });
+                    document.getElementById(`${this.id}-hint`).style.display = 'block';
+                });
+                
+                // 添加失去焦点事件
+                input.addEventListener('blur', function() {
+                    // 移除当前焦点样式
+                    this.classList.remove('current-focus');
+                });
+                
+                // 添加键盘事件
+                input.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        
+                        // 获取下一个输入框的ID
+                        const nextInputId = this.getAttribute('data-next');
+                        
+                        if (nextInputId === 'calculate') {
+                            // 如果是最后一个输入框，则计算分数
+                            calculateScore();
+                        } else {
+                            // 否则跳转到下一个输入框
+                            document.getElementById(nextInputId).focus();
+                        }
+                    }
+                });
+            });
+            
+            // 初始焦点设置到第一个输入框
+            document.getElementById('writing').focus();
+        });
+    </script>
+</body>
+</html>
